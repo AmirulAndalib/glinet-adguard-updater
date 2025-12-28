@@ -7,7 +7,7 @@
 # Description: This script updates AdGuardHome to the latest version.
 # Thread: https://forum.gl-inet.com/t/how-to-update-adguard-home-testing/39398
 # Author: Admon
-SCRIPT_VERSION="2025.11.14.01"
+SCRIPT_VERSION="2025.12.28.01"
 SCRIPT_NAME="update-adguardhome.sh"
 UPDATE_URL="https://get.admon.me/adguard-update"
 AGH_TINY_URL="https://github.com/Admonstrator/glinet-adguard-updater/releases/latest/download"
@@ -111,7 +111,7 @@ invoke_update() {
 
 
 preflight_check() {
-    AVAILABLE_SPACE=$(df -k / | tail -n 1 | awk '{print $4/1024}')
+    AVAILABLE_SPACE=$(df -P -k / | tail -n 1 | awk '{print $4/1024}')
     AVAILABLE_SPACE=$(printf "%.0f" "$AVAILABLE_SPACE")
     ARCH=$(uname -m)
     FIRMWARE_VERSION=$(cut -c1 </etc/glversion)
