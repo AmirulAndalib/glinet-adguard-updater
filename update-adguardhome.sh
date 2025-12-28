@@ -430,4 +430,15 @@ preflight_check
     fi
 
 log "SUCCESS" "Script finished!"
+
+printf "\033[93mDo you want to see a little surprise? (y/N) \033[0m"
+read -r answer_surprise
+answer_surprise_lower=$(echo "$answer_surprise" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
+if [ "$answer_surprise_lower" != "${answer_surprise_lower#[y]}" ]; then
+    wget -q -O /tmp/firework.sh "https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/firework.sh"
+    if [ -f "/tmp/firework.sh" ]; then
+        sh /tmp/firework.sh
+        rm /tmp/firework.sh
+    fi
+fi
 exit 0
