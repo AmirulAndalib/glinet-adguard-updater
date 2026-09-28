@@ -7,7 +7,7 @@
 # Description: This script updates AdGuardHome to the latest version.
 # Thread: https://forum.gl-inet.com/t/how-to-update-adguard-home-testing/39398
 # Author: Admon
-SCRIPT_VERSION="2026.01.06.01"
+SCRIPT_VERSION="2026.09.28.01"
 SCRIPT_NAME="update-adguardhome.sh"
 UPDATE_URL="https://get.admon.me/adguard-update"
 AGH_TINY_URL="https://github.com/Admonstrator/glinet-adguard-updater/releases/latest/download"
@@ -23,6 +23,7 @@ YELLOW='\033[0;33m'
 INFO='\033[0m' # No Color
 IGNORE_FREE_SPACE=0
 SELECT_RELEASE=0
+DNS_WAN_ONLY=0
 
 # Function for backup
 backup() {
@@ -54,6 +55,10 @@ create_persistance_script() {
         exit 1
     fi
 EOF
+    # Keep upstream DNS via WAN only after a firmware upgrade
+    if [ "$DNS_WAN_ONLY" -eq 1 ]; then
+        echo "    sed -i 's/explict_vpn/nonevpn/g' /etc/init.d/adguardhome" >>/usr/bin/enable-adguardhome-update-check
+    fi
     chmod +x /usr/bin/enable-adguardhome-update-check
 
     # Creating cron job
@@ -251,6 +256,44 @@ disable_multipath_tcp() {
     log "INFO" "'procd_set_param env GODEBUG=multipathtcp=0' from /etc/init.d/adguardhome"
 }
 
+configure_dns_routing() {
+    # NOTE: 'explict_vpn' is the (misspelled) keyword used by the GL.iNet firmware
+    if grep -q 'explict_vpn' /etc/init.d/adguardhome; then
+        log "INFO" "By default, AdGuard Home sends its upstream DNS queries through the VPN"
+        log "INFO" "when a VPN tunnel is active. If the VPN tunnel cannot reach the upstream"
+        log "INFO" "DNS servers configured in AdGuard Home, DNS resolution will fail."
+        log "INFO" "We can force AdGuard Home to send its upstream DNS queries via WAN only."
+        log "WARNING" "Upstream DNS queries will then bypass the VPN tunnel!"
+        log "WARNING" "Do you want AdGuard Home to use WAN only for upstream DNS? (y/N)"
+        read answer_dns_wan
+        if [ "$answer_dns_wan" != "${answer_dns_wan#[Yy]}" ]; then
+            log "INFO" "Switching upstream DNS to WAN only ..."
+            sed -i 's/explict_vpn/nonevpn/g' /etc/init.d/adguardhome
+            DNS_WAN_ONLY=1
+            log "SUCCESS" "AdGuard Home now sends upstream DNS queries via WAN only."
+        else
+            log "INFO" "Ok, keeping default DNS routing ..."
+        fi
+    elif [ -f /rom/etc/init.d/adguardhome ] && grep -q 'explict_vpn' /rom/etc/init.d/adguardhome; then
+        log "INFO" "AdGuard Home currently sends upstream DNS queries via WAN only."
+        log "WARNING" "Do you want to restore the default (upstream DNS through VPN)? (y/N)"
+        read answer_dns_restore
+        if [ "$answer_dns_restore" != "${answer_dns_restore#[Yy]}" ]; then
+            log "INFO" "Restoring default DNS routing ..."
+            cp /rom/etc/init.d/adguardhome /etc/init.d/adguardhome
+            if [ -f /usr/bin/enable-adguardhome-update-check ]; then
+                sed -i '/nonevpn/d' /usr/bin/enable-adguardhome-update-check
+            fi
+            log "SUCCESS" "Default DNS routing restored."
+        else
+            log "INFO" "Ok, keeping upstream DNS via WAN only ..."
+            DNS_WAN_ONLY=1
+        fi
+    else
+        log "INFO" "DNS routing option not found in /etc/init.d/adguardhome, skipping ..."
+    fi
+}
+
 # Function to choose a GitHub release label
 choose_release_label() {
     log "INFO" "Fetching available release labels..."
@@ -389,6 +432,9 @@ preflight_check
         chmod +x /usr/bin/AdGuardHome
         # Enable query log
         enable_querylog
+        # Configure upstream DNS routing (VPN or WAN only)
+        # Must run before disable_multipath_tcp, as restoring copies the stock init script
+        configure_dns_routing
         # Disable multipath TCP
         disable_multipath_tcp
         # Restart AdGuardHome

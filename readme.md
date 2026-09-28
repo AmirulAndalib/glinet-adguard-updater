@@ -37,6 +37,7 @@ Created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community
 - 📦 **Tiny Version Support** – Uses pre-compressed binaries optimized for GL.iNet routers (6 MB vs 32 MB)
 - 🎯 **Version Selection** – Install specific AdGuard Home versions
 - 💾 **Query Logging Control** – Optionally enable query logging to file
+- 🌐 **DNS Routing Control** – Optionally send upstream DNS queries via WAN only, bypassing an active VPN
 - 🔄 **Persistence Support** – Make installations survive firmware upgrades
 - 🛡️ **Safe Backups** – Automatic backup of original files before updates
 - ⚡ **Flexible Options** – Multiple flags for customized installations
@@ -142,6 +143,36 @@ sed -i '/^querylog:/,/^[^ ]/ s/^  file_enabled: .*/  file_enabled: true/' /etc/A
 sed -i '/^querylog:/,/^[^ ]/ s/^  file_enabled: .*/  file_enabled: false/' /etc/AdGuardHome/config.yaml
 /etc/init.d/adguardhome restart
 ```
+
+### 🌐 Upstream DNS via WAN Only
+
+By default, AdGuard Home sends its upstream DNS queries through the VPN when a tunnel is active. If the VPN tunnel cannot reach the upstream DNS servers configured in AdGuard Home, DNS resolution will fail.
+
+The script will ask if you want AdGuard Home to send its upstream DNS queries via WAN only. If this is already active, it will ask if you want to restore the default instead. When you make the installation persistent, the setting is re-applied after a firmware upgrade.
+
+> ⚠️ **Note:** With this option enabled, upstream DNS queries bypass the VPN tunnel.
+
+#### Manual DNS Routing Control
+
+**Send upstream DNS queries via WAN only:**
+
+```bash
+sed -i 's/explict_vpn/nonevpn/g' /etc/init.d/adguardhome
+/etc/init.d/adguardhome restart
+```
+
+**Restore default (upstream DNS through VPN):**
+
+```bash
+cp /rom/etc/init.d/adguardhome /etc/init.d/adguardhome
+/etc/init.d/adguardhome restart
+```
+
+> 💡 Restoring the stock init script also removes the multipath TCP fix. To re-apply it, run this before the restart:
+>
+> ```bash
+> sed -i '/procd_set_param stderr 1/a\    procd_set_param env GODEBUG=multipathtcp=0' /etc/init.d/adguardhome
+> ```
 
 ### 🔄 Persistence Support
 
